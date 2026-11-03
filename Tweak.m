@@ -19,6 +19,36 @@ static NSArray<NSDictionary *> *Items(void) {
     ];
 }
 
+#pragma mark - CREDIT (điền link Facebook)
+
+static NSString *const kLinkBach = @"https://www.facebook.com/share/19r75Kb5d4/?mibextid=wwXIfr";
+static NSString *const kLinkDuc  = @"https://www.facebook.com/share/1FQfuugTjG/?mibextid=wwXIfr";
+static NSString *const kLinkHuy  = @"https://www.facebook.com/share/1CXT3fSzWe/?mibextid=wwXIfr";
+
+static NSAttributedString *CreditText(void) {
+    NSMutableAttributedString *a = [NSMutableAttributedString new];
+    NSDictionary *base = @{ NSFontAttributeName: [UIFont systemFontOfSize:12],
+                            NSForegroundColorAttributeName: [UIColor colorWithWhite:0.75 alpha:1] };
+    void (^plain)(NSString *) = ^(NSString *t) {
+        [a appendAttributedString:[[NSAttributedString alloc] initWithString:t attributes:base]];
+    };
+    void (^link)(NSString *, NSString *) = ^(NSString *name, NSString *url) {
+        NSMutableDictionary *d = [base mutableCopy];
+        d[NSFontAttributeName] = [UIFont boldSystemFontOfSize:12];
+        NSURL *u = [NSURL URLWithString:url];
+        if (u) d[NSLinkAttributeName] = u;
+        [a appendAttributedString:[[NSAttributedString alloc] initWithString:name attributes:d]];
+    };
+    plain(@"Develop by ");       link(@"Bach", kLinkBach);
+    plain(@"\nSpecial thanks: "); link(@"Duc Nguyen", kLinkDuc);
+    plain(@" and ");             link(@"Nguyễn Huy", kLinkHuy);
+
+    NSMutableParagraphStyle *ps = [NSMutableParagraphStyle new];
+    ps.alignment = NSTextAlignmentCenter;
+    [a addAttribute:NSParagraphStyleAttributeName value:ps range:NSMakeRange(0, a.length)];
+    return a;
+}
+
 #pragma mark - Tải & thay file
 
 static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSString *msg)) {
@@ -97,7 +127,7 @@ static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSStrin
 
 #pragma mark - Icon nổi + menu
 
-@interface MenuVC : UIViewController
+@interface MenuVC : UIViewController <UITextViewDelegate>
 @property (nonatomic, strong) UIButton *floatBtn;
 @property (nonatomic, strong) UIView *panel;
 @property (nonatomic, strong) UILabel *status;
@@ -195,6 +225,18 @@ static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSStrin
     [st addArrangedSubview:s];
     self.status = s;
 
+    UITextView *tv = [UITextView new];
+    tv.editable = NO;
+    tv.selectable = YES;
+    tv.scrollEnabled = NO;
+    tv.backgroundColor = UIColor.clearColor;
+    tv.textContainerInset = UIEdgeInsetsZero;
+    tv.attributedText = CreditText();
+    tv.linkTextAttributes = @{ NSForegroundColorAttributeName: [UIColor colorWithRed:0.4 green:0.7 blue:1 alpha:1],
+                               NSUnderlineStyleAttributeName: @(NSUnderlineStyleSingle) };
+    tv.delegate = self;
+    [st addArrangedSubview:tv];
+
     UIButton *close = [self actionButton:@"Đóng" color:[UIColor colorWithWhite:0.3 alpha:1]];
     [close addTarget:self action:@selector(togglePanel) forControlEvents:UIControlEventTouchUpInside];
     [st addArrangedSubview:close];
@@ -212,6 +254,14 @@ static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSStrin
         [st.leadingAnchor constraintEqualToAnchor:p.leadingAnchor constant:16],
         [st.trailingAnchor constraintEqualToAnchor:p.trailingAnchor constant:-16],
     ]];
+}
+
+- (BOOL)textView:(UITextView *)textView shouldInteractWithURL:(NSURL *)URL inRange:(NSRange)range
+    interaction:(UITextItemInteraction)interaction {
+    if (interaction == UITextItemInteractionInvokeDefaultAction) {
+        [UIApplication.sharedApplication openURL:URL options:@{} completionHandler:nil];
+    }
+    return NO;
 }
 
 - (void)togglePanel {
