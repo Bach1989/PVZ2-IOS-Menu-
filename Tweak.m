@@ -134,6 +134,8 @@ static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSStrin
 @interface MenuVC : UIViewController <UITextViewDelegate>
 @property (nonatomic, strong) UIButton *floatBtn;
 @property (nonatomic, strong) UIView *panel;
+@property (nonatomic, strong) NSLayoutConstraint *panelCX;
+@property (nonatomic, strong) NSLayoutConstraint *panelCY;
 @property (nonatomic, strong) UILabel *status;
 @property (nonatomic, strong) NSMutableArray<UIButton *> *itemBtns;
 @end
@@ -151,6 +153,7 @@ static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSStrin
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
     self.floatBtn.center = [self clamped:self.floatBtn.center];
+    [self clampPanel];
 }
 
 - (CGPoint)clamped:(CGPoint)c {
@@ -200,9 +203,9 @@ static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSStrin
     p.hidden = YES;
 
     UILabel *title = [UILabel new];
-    title.text = @"Menu";
+    title.text = @"Menu (kéo để di chuyển)";
     title.textColor = UIColor.whiteColor;
-    title.font = [UIFont boldSystemFontOfSize:17];
+    title.font = [UIFont boldSystemFontOfSize:15];
     title.textAlignment = NSTextAlignmentCenter;
 
     UIStackView *st = [[UIStackView alloc] initWithArrangedSubviews:@[title]];
@@ -249,9 +252,13 @@ static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSStrin
     [self.view addSubview:p];
     self.panel = p;
 
+    self.panelCX = [p.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor];
+    self.panelCY = [p.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor];
+    [p addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(onPanelPan:)]];
+
     [NSLayoutConstraint activateConstraints:@[
-        [p.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
-        [p.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
+        self.panelCX,
+        self.panelCY,
         [p.widthAnchor constraintEqualToConstant:260],
         [st.topAnchor constraintEqualToAnchor:p.topAnchor constant:16],
         [st.bottomAnchor constraintEqualToAnchor:p.bottomAnchor constant:-16],
@@ -266,6 +273,28 @@ static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSStrin
         [UIApplication.sharedApplication openURL:URL options:@{} completionHandler:nil];
     }
     return NO;
+}
+
+- (void)onPanelPan:(UIPanGestureRecognizer *)g {
+    CGPoint t = [g translationInView:self.view];
+    [g setTranslation:CGPointZero inView:self.view];
+    self.panelCX.constant += t.x;
+    self.panelCY.constant += t.y;
+    [self clampPanel];
+    [self.view layoutIfNeeded];
+}
+
+// Không cho kéo panel ra khỏi màn hình
+- (void)clampPanel {
+    if (!self.panel) return;
+    CGSize v = self.view.bounds.size;
+    CGSize p = self.panel.bounds.size;
+    CGFloat maxX = MAX(0, (v.width - p.width) / 2);
+    CGFloat maxY = MAX(0, (v.height - p.height) / 2);
+    CGFloat x = MIN(MAX(self.panelCX.constant, -maxX), maxX);
+    CGFloat y = MIN(MAX(self.panelCY.constant, -maxY), maxY);
+    if (x != self.panelCX.constant) self.panelCX.constant = x;
+    if (y != self.panelCY.constant) self.panelCY.constant = y;
 }
 
 - (void)togglePanel {
