@@ -16,6 +16,10 @@ static NSArray<NSDictionary *> *Items(void) {
            @"url":   @"https://archive.org/download/plant-levels/PlantLevels.rton",
            @"subdir": @"CDN.13.5",
            @"file":  @"PlantLevels.rton" },
+        @{ @"title": @"Freeshop",
+           @"url":   @"https://archive.org/download/products_202611/products.rton",
+           @"subdir": @"CDN.13.5",
+           @"file":  @"products.rton" },
     ];
 }
 
@@ -164,7 +168,7 @@ static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSStrin
     b.titleLabel.font = [UIFont boldSystemFontOfSize:15];
     b.backgroundColor = color;
     b.layer.cornerRadius = 10;
-    [b.heightAnchor constraintEqualToConstant:44].active = YES;
+    [b.heightAnchor constraintEqualToConstant:40].active = YES;
     return b;
 }
 
@@ -203,7 +207,7 @@ static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSStrin
 
     UIStackView *st = [[UIStackView alloc] initWithArrangedSubviews:@[title]];
     st.axis = UILayoutConstraintAxisVertical;
-    st.spacing = 10;
+    st.spacing = 8;
     st.translatesAutoresizingMaskIntoConstraints = NO;
 
     NSArray *items = Items();
