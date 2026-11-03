@@ -1,0 +1,19 @@
+name: Build deb
+on:
+  workflow_dispatch:
+  push:
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install ldid dpkg make
+      - name: Cài Theos
+        run: |
+          git clone --recursive https://github.com/theos/theos.git "$HOME/theos"
+          echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
+      - run: make package FINALPACKAGE=1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb
+          path: packages/*.deb
