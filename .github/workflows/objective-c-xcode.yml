@@ -8,23 +8,72 @@ on:
 
 jobs:
   build:
-    name: Build and analyse default scheme using xcodebuild command
+    name: Build and analyse using xcodebuild
     runs-on: macos-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Set Default Scheme
+
+      - name: Locate and Build Project
         run: |
-          scheme_list=$(xcodebuild -list -json | tr -d "\n")
-          default=$(echo $scheme_list | ruby -e "require 'json'; puts JSON.parse(STDIN.gets)['project']['targets'][0]")
-          echo $default | cat >default
-          echo Using default scheme: $default
-      - name: Build
-        env:
-          scheme: ${{ 'default' }}
-        run: |
-          if [ $scheme = default ]; then scheme=$(cat default); fi
-          if [ "`ls -A | grep -i \\.xcworkspace\$`" ]; then filetype_parameter="workspace" && file_to_build="`ls -A | grep -i \\.xcworkspace\$`"; else filetype_parameter="project" && file_to_build="`ls -A | grep -i \\.xcodeproj\$`"; fi
-          file_to_build=`echo $file_to_build | awk '{$1=$1;print}'`
-          xcodebuild clean build analyze -scheme "$scheme" -"$filetype_parameter" "$file_to_build" | xcpretty && exit ${PIPESTATUS[0]}
+          # 1. Tự động tìm kiếm file workspace hoặc xcodeproj trong toàn bộ thư mục
+          echo "=== Đang tìm kiếm file dự án Xcode ==="
+          WORKSPACE_FILE=$(find . -name "*.xcworkspace" -maxdepth 3 | head -n 1)
+          PROJECT_FILE=$(find . -name "*.xcodeproj" -maxdepth 3 | head -n 1)
+          
+          if [ ! -z "$WORKSPACE_FILE" ]; then
+            FILE_TYPE="workspace"
+            TARGET_FILE="$WORKSPACE_FILE"
+            PROJECT_DIR=$(dirname "$WORKSPACE_FILE")
+          elif [ ! -z "$PROJECT_FILE" ]; then
+            FILE_TYPE="project"
+            TARGET_FILE="$PROJECT_FILE"
+            PROJECT_DIR=$(dirname "$PROJECT_FILE")
+          else
+            echo "❌ LỖI: Không tìm thấy file .xcodeproj hoặc .xcworkspace nào cả!"
+            echo "Vui lòng kiểm tra xem bạn đã push file dự án lên GitHub chưa."
+            exit 1
+          fi
+          
+          echo "-> Tìm thấy dự án tại: $TARGET_FILE"
+          cd "$PROJECT_DIR"
+          
+          # Tự động cài đặt Pods nếu thư mục đó có Podfile
+          if [ -f "Podfile" ]; then
+            echo "=== Đang cài đặt CocoaPods ==="
+            pod install
+          fi
+
+          # 2. Lấy scheme mặc định của dự án vừa tìm thấy
+          echo "=== Đang tìm kiếm Scheme ==="
+          SCHEME=$(xcodebuild -list -json | ruby -e "
+            require 'json'
+            begin
+              data = JSON.parse(STDIN.read)
+              # Thử lấy scheme đầu tiên, nếu không có thì lấy target đầu tiên
+              schemes = data['project']['schemes'] || []
+              if schemes.empty?
+                puts data['project']['targets'][0]
+              else
+                puts schemes[0]
+              end
+            rescue => e
+              puts ''
+            end
+          " | awk '{$1=$1;print}')
+
+          if [ -z "$SCHEME" ]; then
+            echo "❌ LỖI: Không tìm thấy Scheme nào hợp lệ."
+            exit 1
+          fi
+          
+          echo "-> Sử dụng Scheme: $SCHEME"
+
+          # 3. Tiến hành Build và Analyze
+          echo "=== Bắt đầu Build và Phân tích code ==="
+          xcodebuild clean build analyze \
+            -$FILE_TYPE "$(basename "$TARGET_FILE")" \
+            -scheme "$SCHEME" \
+            -destination 'platform=iOS Simulator,name=iPhone 15' \
+            | xcpretty && exit ${PIPESTATUS[0]}
