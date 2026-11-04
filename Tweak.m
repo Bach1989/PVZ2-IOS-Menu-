@@ -210,7 +210,7 @@ static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSStrin
     p.hidden = YES;
 
     UILabel *title = [UILabel new];
-    title.text = @"Menu (kéo để di chuyển)";
+    title.text = @"Menu";
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont boldSystemFontOfSize:15];
     title.textAlignment = NSTextAlignmentCenter;
