@@ -2,7 +2,7 @@ Package: com.bachdz.pvzmenu
 Name: PvZ Menu
 Version: 1.0.0
 Architecture: iphoneos-arm
-Description: Floating menu to download and replace game data files
+Description: A not powerful mod menu for Plants vs Zombies 2
 Maintainer: bachdz
 Author: bachdz
 Section: Tweaks
