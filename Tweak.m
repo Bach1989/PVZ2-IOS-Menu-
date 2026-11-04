@@ -23,6 +23,11 @@ static NSArray<NSDictionary *> *Items(void) {
     ];
 }
 
+// Danh sách cuộn: hiện tối đa kVisibleRows nút cùng lúc, nhiều hơn thì vuốt lên xuống
+#define kRowH        40
+#define kRowGap      8
+#define kVisibleRows 3
+
 #pragma mark - CREDIT (điền link Facebook)
 
 static NSString *const kLinkBach = @"https://www.facebook.com/share/19r75Kb5d4/?mibextid=wwXIfr";
@@ -131,9 +136,11 @@ static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSStrin
 
 #pragma mark - Icon nổi + menu
 
-@interface MenuVC : UIViewController <UITextViewDelegate>
+@interface MenuVC : UIViewController <UITextViewDelegate, UIGestureRecognizerDelegate>
 @property (nonatomic, strong) UIButton *floatBtn;
 @property (nonatomic, strong) UIView *panel;
+@property (nonatomic, strong) UIScrollView *scroll;
+@property (nonatomic, strong) UIPanGestureRecognizer *panelPan;
 @property (nonatomic, strong) NSLayoutConstraint *panelCX;
 @property (nonatomic, strong) NSLayoutConstraint *panelCY;
 @property (nonatomic, strong) UILabel *status;
@@ -171,7 +178,7 @@ static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSStrin
     b.titleLabel.font = [UIFont boldSystemFontOfSize:15];
     b.backgroundColor = color;
     b.layer.cornerRadius = 10;
-    [b.heightAnchor constraintEqualToConstant:40].active = YES;
+    [b.heightAnchor constraintEqualToConstant:kRowH].active = YES;
     return b;
 }
 
@@ -203,7 +210,7 @@ static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSStrin
     p.hidden = YES;
 
     UILabel *title = [UILabel new];
-    title.text = @"Menu";
+    title.text = @"Menu (kéo để di chuyển)";
     title.textColor = UIColor.whiteColor;
     title.font = [UIFont boldSystemFontOfSize:15];
     title.textAlignment = NSTextAlignmentCenter;
@@ -213,15 +220,41 @@ static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSStrin
     st.spacing = 8;
     st.translatesAutoresizingMaskIntoConstraints = NO;
 
+    // Danh sách chức năng (cuộn lên xuống nếu nhiều hơn kVisibleRows)
     NSArray *items = Items();
+    UIStackView *list = [[UIStackView alloc] init];
+    list.axis = UILayoutConstraintAxisVertical;
+    list.spacing = kRowGap;
+    list.translatesAutoresizingMaskIntoConstraints = NO;
+
     for (NSUInteger i = 0; i < items.count; i++) {
         UIButton *b = [self actionButton:items[i][@"title"]
                                    color:[UIColor colorWithRed:0.18 green:0.62 blue:0.35 alpha:1]];
         b.tag = i;
         [b addTarget:self action:@selector(onItem:) forControlEvents:UIControlEventTouchUpInside];
-        [st addArrangedSubview:b];
+        [list addArrangedSubview:b];
         [self.itemBtns addObject:b];
     }
+
+    UIScrollView *sv = [UIScrollView new];
+    sv.translatesAutoresizingMaskIntoConstraints = NO;
+    sv.showsVerticalScrollIndicator = YES;
+    sv.indicatorStyle = UIScrollViewIndicatorStyleWhite;
+    sv.alwaysBounceVertical = NO;
+    [sv addSubview:list];
+
+    CGFloat fullH = items.count ? items.count * kRowH + (items.count - 1) * kRowGap : 0;
+    CGFloat maxH  = kVisibleRows * kRowH + (kVisibleRows - 1) * kRowGap;
+    [NSLayoutConstraint activateConstraints:@[
+        [list.topAnchor constraintEqualToAnchor:sv.topAnchor],
+        [list.bottomAnchor constraintEqualToAnchor:sv.bottomAnchor],
+        [list.leadingAnchor constraintEqualToAnchor:sv.leadingAnchor],
+        [list.trailingAnchor constraintEqualToAnchor:sv.trailingAnchor],
+        [list.widthAnchor constraintEqualToAnchor:sv.widthAnchor],
+        [sv.heightAnchor constraintEqualToConstant:MIN(fullH, maxH)],
+    ]];
+    [st addArrangedSubview:sv];
+    self.scroll = sv;
 
     UILabel *s = [UILabel new];
     s.text = @"Sẵn sàng";
@@ -254,7 +287,10 @@ static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSStrin
 
     self.panelCX = [p.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor];
     self.panelCY = [p.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor];
-    [p addGestureRecognizer:[[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(onPanelPan:)]];
+    UIPanGestureRecognizer *pp = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(onPanelPan:)];
+    pp.delegate = self;
+    [p addGestureRecognizer:pp];
+    self.panelPan = pp;
 
     [NSLayoutConstraint activateConstraints:@[
         self.panelCX,
@@ -273,6 +309,12 @@ static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSStrin
         [UIApplication.sharedApplication openURL:URL options:@{} completionHandler:nil];
     }
     return NO;
+}
+
+// Kéo panel chỉ hoạt động ngoài vùng danh sách (trong danh sách thì để cuộn)
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)g shouldReceiveTouch:(UITouch *)touch {
+    if (g == self.panelPan && self.scroll && [touch.view isDescendantOfView:self.scroll]) return NO;
+    return YES;
 }
 
 - (void)onPanelPan:(UIPanGestureRecognizer *)g {
@@ -299,6 +341,7 @@ static void DownloadAndReplace(NSDictionary *item, void (^done)(BOOL ok, NSStrin
 
 - (void)togglePanel {
     self.panel.hidden = !self.panel.hidden;
+    if (!self.panel.hidden) [self.scroll flashScrollIndicators];
 }
 
 - (void)onPan:(UIPanGestureRecognizer *)g {
