@@ -1,9 +1,9 @@
-Package: com.BachDz.pvzmenu
+Package: com.bachdz.pvzmenu
 Name: PvZ Menu
 Version: 1.0.0
 Architecture: iphoneos-arm
 Description: Floating menu to download and replace game data files
-Maintainer: BachDz
-Author: BachDz
+Maintainer: bachdz
+Author: bachdz
 Section: Tweaks
 Depends: mobilesubstrate
